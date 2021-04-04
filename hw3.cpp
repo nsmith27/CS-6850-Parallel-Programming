@@ -126,8 +126,8 @@
 
 
     // Takes in a pointer to 32 ints (32bit each) 
-    void bitonicSort(__m512i A1, __m512i A2) {
-        cout << endl << "Here! " << endl << endl;  
+    void bitonicSort(__m512i &A1, __m512i &A2, __m512i &A1out, __m512i &A2out) {
+        cout << endl << "bitonicSort() CALLED! " << endl << endl;  
 
         __m512i LA;
         __m512i HA;
@@ -145,65 +145,36 @@
         __m512i idx_H5 = _mm512_set_epi32(31, 15, 30, 14, 29, 13, 28, 12, 27, 11, 26, 10, 25, 9, 24, 8);
 
 
-        printVectorInt(A1, "A1");
-        printVectorInt(A2, "A2");
-        cout << endl; 
-
+        // L1
         LA = _mm512_min_epi32(A1, A2);
         HA = _mm512_max_epi32(A1, A2);
         A1 = _mm512_permutex2var_epi32(LA, idx_L1, HA);
         A2 = _mm512_permutex2var_epi32(LA, idx_H1, HA);
 
-        printVectorInt(LA, "LA");
-        printVectorInt(HA, "HA");
-        printVectorInt(A1, "A1");
-        printVectorInt(A2, "A2");
-        cout << endl; 
 
+        // L2
         LA = _mm512_min_epi32(A1, A2);
         HA = _mm512_max_epi32(A1, A2);
         A1 = _mm512_permutex2var_epi32(LA, idx_L2, HA);
         A2 = _mm512_permutex2var_epi32(LA, idx_H2, HA);
         
-        printVectorInt(LA, "LA");
-        printVectorInt(HA, "HA");
-        printVectorInt(A1, "A1");
-        printVectorInt(A2, "A2");
-        cout << endl; 
-
+        // L3
         LA = _mm512_min_epi32(A1, A2);
         HA = _mm512_max_epi32(A1, A2);
         A1 = _mm512_permutex2var_epi32(LA, idx_L3, HA);
         A2 = _mm512_permutex2var_epi32(LA, idx_H3, HA);
 
-        printVectorInt(LA, "LA");
-        printVectorInt(HA, "HA");
-        printVectorInt(A1, "A1");
-        printVectorInt(A2, "A2");
-        cout << endl; 
-
+        // L4
         LA = _mm512_min_epi32(A1, A2);
         HA = _mm512_max_epi32(A1, A2);
         A1 = _mm512_permutex2var_epi32(LA, idx_L4, HA);
         A2 = _mm512_permutex2var_epi32(LA, idx_H4, HA);
 
-        printVectorInt(LA, "LA");
-        printVectorInt(HA, "HA");
-        printVectorInt(A1, "A1");
-        printVectorInt(A2, "A2");
-        cout << endl; 
-
+        // L5
         LA = _mm512_min_epi32(A1, A2);
         HA = _mm512_max_epi32(A1, A2);
-        A1 = _mm512_permutex2var_epi32(LA, idx_L5, HA);
-        A2 = _mm512_permutex2var_epi32(LA, idx_H5, HA);
-
-        printVectorInt(LA, "LA");
-        printVectorInt(HA, "HA");
-        printVectorInt(A1, "A1");
-        printVectorInt(A2, "A2");
-        cout << endl; 
-
+        A1out = _mm512_permutex2var_epi32(LA, idx_L5, HA);
+        A2out = _mm512_permutex2var_epi32(LA, idx_H5, HA);
 
         return;  
     }
@@ -219,7 +190,7 @@
         cout << "Program Start..... " << endl << endl;  
         // int example[32] = {26, 61, 29, 47, 67, 28, 49, 35, 95, 99, 9, 20, 43, 45, 42, 42, 4, 56, 33, 72, 0, 70, 50, 4, 06, 68, 98, 43, 64, 47, 76, 48};
 
-        int n = 32;
+        int n = 64;
         int * test = (int*)aligned_alloc(64, sizeof(int) * n);
         for (int i = 0; i < n; i++){
             test[i] = i; 
@@ -230,16 +201,32 @@
 
         bubbleSort(16,test, 0);
         bubbleSort(16,test+16, 1);
+        bubbleSort(16,test+32, 0);
+        bubbleSort(16,test+48, 1);
 
         aprint(16, test);
         aprint(16, test+16);
+        aprint(16, test+32);
+        aprint(16, test+48);
 
-        __m512i A1 = _mm512_load_si512(test); // Go get the first vector
-        __m512i A2 = _mm512_load_si512(test+16); // Go get the first vector
+        __m512i A1 = _mm512_load_si512(test); 
+        __m512i A2 = _mm512_load_si512(test+16);
+        __m512i A1out;  
+        __m512i A2out;
+        bitonicSort(A1, A2, A1out, A2out);  
+        _mm512_store_si512(&test[0], A1out);
+        _mm512_store_si512(&test[16], A2out);
 
-        bitonicSort(A1, A2);  
+        A1 = _mm512_load_si512(test+32); 
+        A2 = _mm512_load_si512(test+48); 
+        bitonicSort(A1, A2, A1out, A2out);  
+        _mm512_store_si512(&test[32], A1out);
+        _mm512_store_si512(&test[48], A2out);
         
+        aprint(32, test);
+        aprint(32, test+32);
 
+        
 
         return 0;
     }
