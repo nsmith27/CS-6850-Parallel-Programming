@@ -46,16 +46,10 @@ void bubbleSort(int size, T * A, bool rev){
 
 
 // Takes in a pointer to 32 ints (32bit each) 
-void bitonicSort(int * A, int * B) {
-    bubbleSort(16, A, 0);
-    bubbleSort(16, B, 1);
+void bitonicSort(__m512i A1, __m512i A2) {
 
-    aprint(16, A);
-    aprint(16, B);
-
-
+    cout << "Here! " << endl;  
     // __m512i reverse = _mm512_set_epi32(0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15);
-
     // __m512i idx_L1= _mm512_set_epi32(23, 22, 21, 20, 19, 18, 17, 16, 7, 6, 5, 4, 3, 2, 1, 0);
     // __m512i idx_H2= _mm512_set_epi32(31, 30, 29, 28, 27, 26, 25, 24, 15, 14, 13, 12, 11, 10, 9, 8);
     // __m512i idx_L3= _mm512_set_epi32(27, 26, 25, 24, 11, 10, 9, 8, 19, 18, 17, 16, 3, 2, 1, 0);
@@ -67,13 +61,13 @@ void bitonicSort(int * A, int * B) {
     // __m512i idx_L9= _mm512_set_epi32(23, 7, 22, 6, 21, 5, 20, 4, 19, 3, 18, 2, 17, 1, 16, 0);
     // __m512i idx_H10= _mm512_set_epi32(31, 15, 30, 14, 29, 13, 28, 12, 27, 11, 26, 10, 25, 9, 24, 8);
 
-
+    return;  
 }
 
 
-// //////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// //  Helper Functions
-// //////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//  Helper Functions
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // // // Code to help print an __m512 vector:
 // void printVectorInt(__m512i v, string name) {
@@ -156,25 +150,28 @@ void aShuffle(int size, T * A ){
 int main(){
 
 
-    cout << "Hi there! " << endl << endl;  
+    cout << "Program Start..... " << endl << endl;  
 
     int n = 32;
     int * test = (int*)aligned_alloc(64, sizeof(int) * n);
-    // int * test = new int[n];
     for (int i = 0; i < n; i++){
         test[i] = i; 
     }
 
-
-    // vector<int> test{2,4,15,6,4,3};
     aShuffle(n, test);
     aprint(n, test); 
 
-    bitonicSort(test, test+16);  
-    // bubbleSort(n, test, 1);  
-    // aprint(n, test); 
-    // bubbleSort(n, test, 0);  
-    // aprint(n, test);
+    bubbleSort(16,test, 0);
+    bubbleSort(16,test+16, 1);
+
+    aprint(16, test);
+    aprint(16, test+16);
+
+    __m512i A1 = _mm512_load_si512(test); // Go get the first vector
+    __m512i A2 = _mm512_load_si512(test+16); // Go get the first vector
+
+    bitonicSort(A1, A2);  
+    
 
 
     return 0;
