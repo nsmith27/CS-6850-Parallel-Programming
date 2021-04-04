@@ -28,34 +28,47 @@ void aprint(int size, T * A);
 template <typename T>
 void bubbleSort(int size, T * A, bool rev){
     for (int i = 0; i < size; i++){
+        int swaps = 0;
         for (int k =  0; k < size-1; k++){
             if ( (A[k] > A[k+1]) != (rev) ){
                 T temp = A[k];
                 A[k] = A[k+1];
-                A[k+1] = temp;  
+                A[k+1] = temp;
+                swaps += 1;  
             }
+        }
+        if (swaps == 0){
+            return;  
         }
     }
     return;
 }
 
 
-// void bitonicSort(){
-//     __m512i reverse = _mm512_set_epi32(0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15);
+// Takes in a pointer to 32 ints (32bit each) 
+void bitonicSort(int * A, int * B) {
+    bubbleSort(16, A, 0);
+    bubbleSort(16, B, 1);
 
-//     __m512i idx_L1= _mm512_set_epi32(23, 22, 21, 20, 19, 18, 17, 16, 7, 6, 5, 4, 3, 2, 1, 0);
-//     __m512i idx_H2= _mm512_set_epi32(31, 30, 29, 28, 27, 26, 25, 24, 15, 14, 13, 12, 11, 10, 9, 8);
-//     __m512i idx_L3= _mm512_set_epi32(27, 26, 25, 24, 11, 10, 9, 8, 19, 18, 17, 16, 3, 2, 1, 0);
-//     __m512i idx_H4= _mm512_set_epi32(31, 30, 29, 28, 15, 14, 13, 12, 23, 22, 21, 20, 7, 6, 5, 4);
-//     __m512i idx_L5= _mm512_set_epi32(29, 28, 13, 12, 25, 24, 9, 8, 21, 20, 5, 4, 17, 16, 1, 0);
-//     __m512i idx_H6= _mm512_set_epi32(31, 30, 15, 14, 27, 26, 11, 10, 23, 22, 7, 6, 19, 18, 3, 2);
-//     __m512i idx_L7= _mm512_set_epi32(30, 14, 28, 12, 26, 10, 24, 8, 22, 6, 20, 4, 18, 2, 16, 0);
-//     __m512i idx_H8= _mm512_set_epi32(31, 15, 29, 13, 27, 11, 25, 9, 23, 7, 21, 5, 19, 3, 17, 1);
-//     __m512i idx_L9= _mm512_set_epi32(23, 7, 22, 6, 21, 5, 20, 4, 19, 3, 18, 2, 17, 1, 16, 0);
-//     __m512i idx_H10= _mm512_set_epi32(31, 15, 30, 14, 29, 13, 28, 12, 27, 11, 26, 10, 25, 9, 24, 8);
+    aprint(16, A);
+    aprint(16, B);
 
 
-// }
+    // __m512i reverse = _mm512_set_epi32(0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15);
+
+    // __m512i idx_L1= _mm512_set_epi32(23, 22, 21, 20, 19, 18, 17, 16, 7, 6, 5, 4, 3, 2, 1, 0);
+    // __m512i idx_H2= _mm512_set_epi32(31, 30, 29, 28, 27, 26, 25, 24, 15, 14, 13, 12, 11, 10, 9, 8);
+    // __m512i idx_L3= _mm512_set_epi32(27, 26, 25, 24, 11, 10, 9, 8, 19, 18, 17, 16, 3, 2, 1, 0);
+    // __m512i idx_H4= _mm512_set_epi32(31, 30, 29, 28, 15, 14, 13, 12, 23, 22, 21, 20, 7, 6, 5, 4);
+    // __m512i idx_L5= _mm512_set_epi32(29, 28, 13, 12, 25, 24, 9, 8, 21, 20, 5, 4, 17, 16, 1, 0);
+    // __m512i idx_H6= _mm512_set_epi32(31, 30, 15, 14, 27, 26, 11, 10, 23, 22, 7, 6, 19, 18, 3, 2);
+    // __m512i idx_L7= _mm512_set_epi32(30, 14, 28, 12, 26, 10, 24, 8, 22, 6, 20, 4, 18, 2, 16, 0);
+    // __m512i idx_H8= _mm512_set_epi32(31, 15, 29, 13, 27, 11, 25, 9, 23, 7, 21, 5, 19, 3, 17, 1);
+    // __m512i idx_L9= _mm512_set_epi32(23, 7, 22, 6, 21, 5, 20, 4, 19, 3, 18, 2, 17, 1, 16, 0);
+    // __m512i idx_H10= _mm512_set_epi32(31, 15, 30, 14, 29, 13, 28, 12, 27, 11, 26, 10, 25, 9, 24, 8);
+
+
+}
 
 
 // //////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -156,18 +169,12 @@ int main(){
     // vector<int> test{2,4,15,6,4,3};
     aShuffle(n, test);
     aprint(n, test); 
-    bubbleSort(n, test, 1);  
-    aprint(n, test); 
-    bubbleSort(n, test, 0);  
-    aprint(n, test);
 
-    // Here are the final changes
-    // Here are the final changes 2222!
-    // 3
-    // 4
-
-
-
+    bitonicSort(test, test+16);  
+    // bubbleSort(n, test, 1);  
+    // aprint(n, test); 
+    // bubbleSort(n, test, 0);  
+    // aprint(n, test);
 
 
     return 0;
