@@ -13,7 +13,7 @@
 
 
     template <typename T>
-    void bubbleSort(int size, T * A, bool rev);
+    void bubbleSort(int size, T * A);
 
     template <typename T> 
     void aShuffle(int size, T * A );
@@ -106,11 +106,11 @@
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Bubble Sort 
     template <typename T>
-    void bubbleSort(int size, T * A, bool rev){
+    void bubbleSort(int size, T * A){
         for (int i = 0; i < size; i++){
             int swaps = 0;
             for (int k =  0; k < size-1; k++){
-                if ( (A[k] > A[k+1]) != (rev) ){
+                if ( A[k] > A[k+1] ) {
                     T temp = A[k];
                     A[k] = A[k+1];
                     A[k+1] = temp;
@@ -129,6 +129,10 @@
     void bitonicSort(__m512i &A1, __m512i &A2, __m512i &A1out, __m512i &A2out) {
         cout << endl << "bitonicSort() CALLED! " << endl << endl;  
 
+        printVectorInt(A1, "A1");
+        printVectorInt(A2, "A2");
+
+
         __m512i LA;
         __m512i HA;
 
@@ -143,6 +147,9 @@
         __m512i idx_H4 = _mm512_set_epi32(31, 15, 29, 13, 27, 11, 25, 9, 23, 7, 21, 5, 19, 3, 17, 1);
         __m512i idx_L5 = _mm512_set_epi32(23, 7, 22, 6, 21, 5, 20, 4, 19, 3, 18, 2, 17, 1, 16, 0);
         __m512i idx_H5 = _mm512_set_epi32(31, 15, 30, 14, 29, 13, 28, 12, 27, 11, 26, 10, 25, 9, 24, 8);
+
+        // Reverse Step
+        A2 = _mm512_permutexvar_epi32(reverse, A2);
 
 
         // L1
@@ -176,6 +183,10 @@
         A1out = _mm512_permutex2var_epi32(LA, idx_L5, HA);
         A2out = _mm512_permutex2var_epi32(LA, idx_H5, HA);
 
+        printVectorInt(A1out, "A1out");
+        printVectorInt(A2out, "A2out");
+
+
         return;  
     }
 
@@ -199,10 +210,10 @@
         aShuffle(n, test);
         aprint(n, test); 
 
-        bubbleSort(16,test, 0);
-        bubbleSort(16,test+16, 1);
-        bubbleSort(16,test+32, 0);
-        bubbleSort(16,test+48, 1);
+        bubbleSort(16,test);
+        bubbleSort(16,test+16);
+        bubbleSort(16,test+32);
+        bubbleSort(16,test+48);
 
         aprint(16, test);
         aprint(16, test+16);
@@ -226,7 +237,51 @@
         aprint(32, test);
         aprint(32, test+32);
 
-        
+
+        cout << endl << "-------------------------------------------" << endl << endl;  
+        int startA1 = 0;
+        int endA1 = startA1 + 16;
+        int startA2 = 32;
+        int endA2 = startA2+16;
+        A1 = _mm512_load_si512(test); 
+        A2 = _mm512_load_si512(test+32);
+        for (int i = 0; i < 3; i++){
+            bitonicSort(A1, A2, A1out, A2out);
+            _mm512_store_si512(&test[i*16], A1out);
+            A1 = A2out; 
+            if (i == (3-1) ){
+                cout << "end N" << endl;  
+                _mm512_store_si512(&test[i*16+16], A2out);
+            }
+            else if (startA1 == endA1) {
+                cout << "If 1" << endl;  
+
+                // Finished 1’s side but not 2’s side
+                startA2 += 16;
+                A2 = _mm512_load_si512(&test[startA2]);
+            } 
+            else if (startA2 == endA2) {
+                cout << "If 2" << endl;  
+                // Finished 2's side but not 1’s side
+                startA1 += 16;
+                A2 = _mm512_load_si512(&test[startA1]);
+            } 
+            else if (test[startA1 + 16] < test[startA2 + 16] ){
+                cout << "If 3" << endl;  
+                // use A1’s value
+                startA1 += 16;
+                A2 = _mm512_load_si512(&test[startA1]); 
+            } 
+            else if (test[startA1 + 16] >= test[startA2 + 16] ){
+                cout << "If 4" << endl;  
+                // use A2’s value
+                startA2 += 16;
+                A2 = _mm512_load_si512(&test[startA2]); 
+            }
+            aprint(32, test);
+            aprint(32, test+32);
+        }
+
 
         return 0;
     }
