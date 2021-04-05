@@ -81,15 +81,15 @@ void aprint(int size, T * A){
         }
         cout << A[i];
         if (i+1 != size ){
-            cout << " -" ;
             if (i % 16 == 15){
-                cout << "-";  
+                cout << " +|+";  
         }                }
         cout << " ";  
     }
     cout << endl; 
     return;  
 }
+
 
 // Randomize elements of a vector
 template <typename T> 
@@ -242,21 +242,22 @@ int main(){
     cout << endl << "-------------------------------------------" << endl << endl;  
 
 
-    int sortedBlockSize = 1;
-    int endingBlockSize = n;
-    int ILP = 1; 
-
     __m512i A1 = _mm512_load_si512(test); 
     __m512i A2 = _mm512_load_si512(test+16);
     __m512i A1out;  
     __m512i A2out;
+
+    int sortedBlockSize = 1;
+    int endingBlockSize = n;
+    int ILP = 1; 
+    
     while (sortedBlockSize <= endingBlockSize) {            
         int startIndex = 0;  
         int endIndex = n;  
         int increment = sortedBlockSize * ILP *2;
         for (int arrIndex = startIndex; arrIndex < endIndex; arrIndex += increment) {
             
-            int startA1 = 0;
+            int startA1 = arrIndex;
             int endA1 = startA1 + 16;
             int startA2 = sortedBlockSize;
             int endA2 = startA2+16;
