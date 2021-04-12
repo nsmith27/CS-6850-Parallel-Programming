@@ -1,12 +1,7 @@
-#include "immintrin.h"
-#include <algorithm>
-#include <iostream>
 #include <cstdlib>
-#include <cstdio>
-#include <random>
-#include <string>
-#include <vector>
+#include "immintrin.h"
 #include <chrono>
+#include <cstdio>
 
 int main() {
     int max = 10000000;

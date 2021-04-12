@@ -14,7 +14,19 @@ using namespace std;
 
 
 template <typename T>
+bool isSorted(int size, T * A);
+
+template <typename T>
+void sort16(int size, T * A);
+
+template <typename T>
+void selectionSort(int size, T * A);
+
+template <typename T>
 void bubbleSort(int size, T * A);
+
+template <typename T>
+void getRandomArray(int size, T * A);
 
 template <typename T> 
 void aShuffle(int size, T * A );
@@ -52,27 +64,6 @@ void printVectorInt(__m512i v, string name) {
     #endif
 
 }
-// void printVectorFloat(__m512 v, string name) {
-//     #if defined (__GNUC__)
-//     float* temp = (float*)aligned_alloc(64, sizeof(float) * 16);
-//     #elif defined (_MSC_VER)
-//     float* temp = (float*)_aligned_malloc(sizeof(float) * 16, 64);
-//     #endif
-
-//     _mm512_store_ps(temp, v);
-//     printf("The vector called %s contains: ", name.c_str());
-
-//     for (int i = 0; i < 16; i++) {
-//         printf("%3f ", temp[i]);
-//     }
-//     printf("\n");
-
-//     #if defined (__GNUC__)
-//     free(temp);
-//     #elif defined (_MSC_VER)
-//     _aligned_free(temp);
-//     #endif
-// }
 
 // Print array
 template <typename T>
@@ -110,17 +101,70 @@ void aShuffle(int size, T * A ){
 }
 
 int * getCopyArr(int n, int * start){
-    int * result = new int[n];
+    int * result = (int*)aligned_alloc(64, sizeof(int) * n);
     for (int i = 0; i < n; i++){
         result[i] = start[i];
     }
     return result;  
 }
 
+template <typename T>
+void getRandomArray(int size, T * A){
+    for (int i = 0; i < size; i++){
+        A[i] = i; 
+    }
+    aShuffle(size, A);
+    if (size <= 256){
+        aprint(size, A); 
+    }
+    return;
+}
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //  Primary Functions
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// isSorted
+template <typename T>
+bool isSorted(int size, T * A){
+    for (int i = 0; i < size-1; i++){
+        if (A[i] > A[i+1])
+        return false;
+    }
+    return true;  
+}
+
+// Sort 16
+template <typename T>
+void sort16(int size, T * A){
+    for (int i = 0; i < size; i+=16){
+        selectionSort(16,A+i);
+        cout << endl; 
+        aprint(16, A+i);
+        if (!isSorted(16, A+i)){
+            cout << "Not Sorted!!!" << endl;  
+        }
+    }
+    return;
+}
+
+// Selection Sort
+template <typename T>
+void selectionSort(int size, T * A){
+    int swaps;
+    for (int i = 0; i < size-1; i++){
+        int min = i;
+        for (int j = i+1; j < size; j++){
+            if (A[j] < A[min]){
+                min = j;
+            }
+        }
+        T temp = A[i];
+        A[i] = A[min];
+        A[min] = temp;   
+    }
+    return;  
+}
+
 // Bubble Sort 
 template <typename T>
 void bubbleSort(int size, T * A){
@@ -141,8 +185,7 @@ void bubbleSort(int size, T * A){
 }
 
 
-
-// Takes in a pointer to 32 ints (32bit each) 
+// Takes in two 16 bit pointers
 void bitonicSort(__m512i &A1, __m512i &A2, __m512i &A1out, __m512i &A2out) {
     cout << endl << "bitonicSort() CALLED! " << endl << endl;  
 
@@ -168,13 +211,11 @@ void bitonicSort(__m512i &A1, __m512i &A2, __m512i &A1out, __m512i &A2out) {
     // Reverse Step
     A2 = _mm512_permutexvar_epi32(reverse, A2);
 
-
     // L1
     LA = _mm512_min_epi32(A1, A2);
     HA = _mm512_max_epi32(A1, A2);
     A1 = _mm512_permutex2var_epi32(LA, idx_L1, HA);
     A2 = _mm512_permutex2var_epi32(LA, idx_H1, HA);
-
 
     // L2
     LA = _mm512_min_epi32(A1, A2);
@@ -215,95 +256,87 @@ void bitonicSort(__m512i &A1, __m512i &A2, __m512i &A1out, __m512i &A2out) {
 int main(){
 
 
+    //      |..SEG...SEG...SEG...SEG..|..........BLOCK..........|..........BLOCK..........|..........BLOCK..........|
+    //       <--------           THREAD WORK SIZE               -------->
+    //
+    // Several segments make a block, and 1 or 4 blocks make a thread_work_size, until the whole thing is sorted.  
+    // Segments are 2xsorted_block_size long, and are spaced at regular intervals 
     cout << "Program Start..... " << endl << endl;  
-    // int example[32] = {26, 61, 29, 47, 67, 28, 49, 35, 95, 99, 9, 20, 43, 45, 42, 42, 4, 56, 33, 72, 0, 70, 50, 4, 06, 68, 98, 43, 64, 47, 76, 48};
-
     int n = 256;
-    int * test = (int*)aligned_alloc(64, sizeof(int) * n);
-    for (int i = 0; i < n; i++){
-        test[i] = i; 
-    }
+    int * Arr = (int*)aligned_alloc(64, sizeof(int) * n);
+    getRandomArray(n, Arr);
+    aprint(n, Arr);   
 
-    aShuffle(n, test);
-    aprint(n, test); 
 
-    bubbleSort(128,test);
-    bubbleSort(128,test+128);
 
-    cout << endl; 
-    aprint(64, test);
-    aprint(64, test+64);
-    // aprint(16, test+32);
-    // aprint(16, test+48);
+    // Each thread works on a thread_work_size amount of data
+    int thread_work_size = n;
+    int end_block_size = thread_work_size / 1;
+    sort16(n, Arr);  
+    int sorted_block_size = 16;
+    
+    int thread_work_index = 0;
+    int thread_end_index = thread_work_index + n;  
 
-    __m512i A1 = _mm512_load_si512(test); 
-    __m512i A2 = _mm512_load_si512(test+16);
-    __m512i A1out;  
-    __m512i A2out;
-    // bitonicSort(A1, A2, A1out, A2out);  
-    // _mm512_store_si512(&test[0], A1out);
-    // _mm512_store_si512(&test[16], A2out);
-
-    // A1 = _mm512_load_si512(test+32); 
-    // A2 = _mm512_load_si512(test+48); 
-    // bitonicSort(A1, A2, A1out, A2out);  
-    // _mm512_store_si512(&test[32], A1out);
-    // _mm512_store_si512(&test[48], A2out);
-
-    // aprint(32, test);
-    // aprint(32, test+32);
-
+    int * Arr_read = &Arr[thread_work_index];
+    int * Arr_write = (int*)aligned_alloc(64, sizeof(int) * n);
 
     cout << endl << "-------------------------------------------" << endl << endl;  
-    int sortedBlockSize = 128;
-    int startA1 = 0;
-    int endA1 = startA1 + 128;
-    int startA2 = sortedBlockSize;
-    int endA2 = startA2+128;
-    A1 = _mm512_load_si512(test); 
-    A2 = _mm512_load_si512(test+sortedBlockSize);
-    int * Acopy = getCopyArr(sortedBlockSize * 2, &test[startA1]);
-    aprint(128, Acopy);
-    aprint(128, Acopy+128);
-    for (int i = 0; i < (sortedBlockSize/8)-1; i++){
-        cout << i+1 << " -- ";  
-        bitonicSort(A1, A2, A1out, A2out);
-        cout << startA1 << ", " << startA2 << endl;  
-        _mm512_store_si512(&test[i*16], A1out);
-        A1 = A2out; 
-        if (i == ((sortedBlockSize/8)-2) ){
-            cout << "Last Iteration" << endl;  
-            _mm512_store_si512(&test[i*16+16], A2out);
-        }
-        else if (startA1+16 == endA1) {
-            cout << "If 1" << endl;  
-            // Finished 1’s side but not 2’s side
-            startA2 += 16;
-            A2 = _mm512_load_si512(&Acopy[startA2]);
-        } 
-        else if (startA2+16 == endA2) {
-            cout << "If 2" << endl;  
-            // Finished 2's side but not 1’s side
-            startA1 += 16;
-            A2 = _mm512_load_si512(&Acopy[startA1]);
-        } 
-        else if (Acopy[startA1 + 16] < Acopy[startA2 + 16] ){
-            cout << "If 3" << endl;  
-            // use A1’s value
-            startA1 += 16;
-            A2 = _mm512_load_si512(&Acopy[startA1]); 
-        } 
-        else if (Acopy[startA1 + 16] >= Acopy[startA2 + 16] ){
-            cout << "If 4" << endl;  
-            // Store A2's source and swap A1's source with A2's source 
-            startA2 += 16;
-            A2 = _mm512_load_si512(&Acopy[startA2]); 
-        }
-        cout << startA1 << ", " << startA2 << endl;  
-        aprint(128, test);
-        aprint(128, test+128);
-    }
 
+    // while (sortedBlockSize < endBlockSize){
+
+
+        for (int segment = 0; segment < thread_work_size; segment += sorted_block_size * 2){
+            cout << ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> " << segment << endl;  
+            int startA1 = segment;
+            int endA1 = startA1 + sorted_block_size;
+            int startA2 = endA1;
+            int endA2 = startA2 + sorted_block_size;
+
+            __m512i A1 = _mm512_load_si512(&Arr_read[startA1]); 
+            __m512i A2 = _mm512_load_si512(&Arr_read[startA2]);
+            __m512i A1out;  
+            __m512i A2out;
+            for (int i = 0; i < (sorted_block_size/8)-1; i++){
+                cout << i+1 << " -- ";  
+                bitonicSort(A1, A2, A1out, A2out);
+                cout << startA1 << ", " << startA2 << endl;  
+                _mm512_store_si512(&Arr_write[segment + i*16], A1out);
+                A1 = A2out; 
+                if (i == ((sorted_block_size/8)-2) ){
+                    cout << "Last Iteration" << endl;  
+                    _mm512_store_si512(&Arr_write[segment + i*16+16], A2out);
+                }
+                else if (startA1+16 == endA1) {
+                    cout << "If 1" << endl;  
+                    // Finished 1’s side but not 2’s side
+                    startA2 += 16;
+                    A2 = _mm512_load_si512(&Arr_read[startA2]);
+                } 
+                else if (startA2+16 == endA2) {
+                    cout << "If 2" << endl;  
+                    // Finished 2's side but not 1’s side
+                    startA1 += 16;
+                    A2 = _mm512_load_si512(&Arr_read[startA1]);
+                } 
+                else if (Arr_read[startA1 + 16] < Arr_read[startA2 + 16] ){
+                    cout << "If 3" << endl;  
+                    // use A1’s value
+                    startA1 += 16;
+                    A2 = _mm512_load_si512(&Arr_read[startA1]); 
+                } 
+                else if (Arr_read[startA1 + 16] >= Arr_read[startA2 + 16] ){
+                    cout << "If 4" << endl;  
+                    // Store A2's source and swap A1's source with A2's source 
+                    startA2 += 16;
+                    A2 = _mm512_load_si512(&Arr_read[startA2]); 
+                }
+                cout << startA1 << ", " << startA2 << endl;  
+                aprint(128, Arr_write);
+                aprint(128, Arr_write+128);
+            }
+        }
+    // }
 
     return 0;
 }
