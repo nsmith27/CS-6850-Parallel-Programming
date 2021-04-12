@@ -17,6 +17,9 @@ template <typename T>
 bool isSorted(int size, T * A);
 
 template <typename T>
+bool areBlocksSorted(int size, T * A, int ILP);
+
+template <typename T>
 void sort16(int size, T * A);
 
 template <typename T>
@@ -127,19 +130,38 @@ void getRandomArray(int size, T * A){
 template <typename T>
 bool isSorted(int size, T * A){
     for (int i = 0; i < size-1; i++){
-        if (A[i] > A[i+1])
-        return false;
+        if (A[i] > A[i+1]){
+            return false;
+        }
     }
     return true;  
 }
+
+// areBlocksSorted
+template <typename T>
+bool areBlocksSorted(int size, T * A, int ILP){
+    bool sorted = true; 
+    int block_size = size / ILP;
+    for (int i = 0; i < ILP; i++){
+        if ( !isSorted(block_size, &A[i * block_size]) ){
+            cout << "Failed to sort Block " << i << "!" << endl;  
+            sorted = false;
+        }
+    }
+    if (sorted){
+        cout << "Success! " << endl;  
+    }
+    return sorted;  
+}
+
 
 // Sort 16
 template <typename T>
 void sort16(int size, T * A){
     for (int i = 0; i < size; i+=16){
         selectionSort(16,A+i);
-        cout << endl; 
-        aprint(16, A+i);
+        // cout << endl; 
+        // aprint(16, A+i);
         if (!isSorted(16, A+i)){
             cout << "Not Sorted!!!" << endl;  
         }
@@ -186,15 +208,30 @@ void bubbleSort(int size, T * A){
 
 
 // Takes in two 16 bit pointers
-void bitonicSort(__m512i &A1, __m512i &A2, __m512i &A1out, __m512i &A2out) {
-    cout << endl << "bitonicSort() CALLED! " << endl << endl;  
+void bitonicSort(__m512i &A1, __m512i &A2, __m512i &A1out, __m512i &A2out,
+                 __m512i &B1, __m512i &B2, __m512i &B1out, __m512i &B2out,
+                 __m512i &C1, __m512i &C2, __m512i &C1out, __m512i &C2out,
+                 __m512i &D1, __m512i &D2, __m512i &D1out, __m512i &D2out) {
 
-    printVectorInt(A1, "A1");
-    printVectorInt(A2, "A2");
-
+    // cout << endl << "bitonicSort() CALLED! " << endl << endl;  
+    // printVectorInt(A1, "A1");
+    // printVectorInt(A2, "A2");
+    // printVectorInt(A1, "B1");
+    // printVectorInt(A2, "B2");
+    // printVectorInt(A1, "C1");
+    // printVectorInt(A2, "C2");
+    // printVectorInt(A1, "D1");
+    // printVectorInt(A2, "D2");
 
     __m512i LA;
+    __m512i LB;
+    __m512i LC;
+    __m512i LD;
+
     __m512i HA;
+    __m512i HB;
+    __m512i HC;
+    __m512i HD;
 
     __m512i reverse = _mm512_set_epi32(0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15);
     __m512i idx_L1 = _mm512_set_epi32(23, 22, 21, 20, 19, 18, 17, 16, 7, 6, 5, 4, 3, 2, 1, 0);
@@ -210,40 +247,123 @@ void bitonicSort(__m512i &A1, __m512i &A2, __m512i &A1out, __m512i &A2out) {
 
     // Reverse Step
     A2 = _mm512_permutexvar_epi32(reverse, A2);
+    B2 = _mm512_permutexvar_epi32(reverse, B2);
+    C2 = _mm512_permutexvar_epi32(reverse, C2);
+    D2 = _mm512_permutexvar_epi32(reverse, D2);
 
     // L1
     LA = _mm512_min_epi32(A1, A2);
+    LB = _mm512_min_epi32(B1, B2);
+    LC = _mm512_min_epi32(C1, C2);
+    LD = _mm512_min_epi32(D1, D2);
+    
     HA = _mm512_max_epi32(A1, A2);
+    HB = _mm512_max_epi32(B1, B2);
+    HC = _mm512_max_epi32(C1, C2);
+    HD = _mm512_max_epi32(D1, D2);
+    
     A1 = _mm512_permutex2var_epi32(LA, idx_L1, HA);
+    B1 = _mm512_permutex2var_epi32(LB, idx_L1, HB);
+    C1 = _mm512_permutex2var_epi32(LC, idx_L1, HC);
+    D1 = _mm512_permutex2var_epi32(LD, idx_L1, HD);
+    
     A2 = _mm512_permutex2var_epi32(LA, idx_H1, HA);
+    B2 = _mm512_permutex2var_epi32(LB, idx_H1, HB);
+    C2 = _mm512_permutex2var_epi32(LC, idx_H1, HC);
+    D2 = _mm512_permutex2var_epi32(LD, idx_H1, HD);
 
     // L2
     LA = _mm512_min_epi32(A1, A2);
+    LB = _mm512_min_epi32(B1, B2);
+    LC = _mm512_min_epi32(C1, C2);
+    LD = _mm512_min_epi32(D1, D2);
+    
     HA = _mm512_max_epi32(A1, A2);
+    HB = _mm512_max_epi32(B1, B2);
+    HC = _mm512_max_epi32(C1, C2);
+    HD = _mm512_max_epi32(D1, D2);
+    
     A1 = _mm512_permutex2var_epi32(LA, idx_L2, HA);
+    B1 = _mm512_permutex2var_epi32(LB, idx_L2, HB);
+    C1 = _mm512_permutex2var_epi32(LC, idx_L2, HC);
+    D1 = _mm512_permutex2var_epi32(LD, idx_L2, HD);
+    
     A2 = _mm512_permutex2var_epi32(LA, idx_H2, HA);
+    B2 = _mm512_permutex2var_epi32(LB, idx_H2, HB);
+    C2 = _mm512_permutex2var_epi32(LC, idx_H2, HC);
+    D2 = _mm512_permutex2var_epi32(LD, idx_H2, HD);
 
     // L3
     LA = _mm512_min_epi32(A1, A2);
+    LB = _mm512_min_epi32(B1, B2);
+    LC = _mm512_min_epi32(C1, C2);
+    LD = _mm512_min_epi32(D1, D2);
+    
     HA = _mm512_max_epi32(A1, A2);
+    HB = _mm512_max_epi32(B1, B2);
+    HC = _mm512_max_epi32(C1, C2);
+    HD = _mm512_max_epi32(D1, D2);
+    
     A1 = _mm512_permutex2var_epi32(LA, idx_L3, HA);
+    B1 = _mm512_permutex2var_epi32(LB, idx_L3, HB);
+    C1 = _mm512_permutex2var_epi32(LC, idx_L3, HC);
+    D1 = _mm512_permutex2var_epi32(LD, idx_L3, HD);
+    
     A2 = _mm512_permutex2var_epi32(LA, idx_H3, HA);
+    B2 = _mm512_permutex2var_epi32(LB, idx_H3, HB);
+    C2 = _mm512_permutex2var_epi32(LC, idx_H3, HC);
+    D2 = _mm512_permutex2var_epi32(LD, idx_H3, HD);
 
     // L4
     LA = _mm512_min_epi32(A1, A2);
+    LB = _mm512_min_epi32(B1, B2);
+    LC = _mm512_min_epi32(C1, C2);
+    LD = _mm512_min_epi32(D1, D2);
+    
     HA = _mm512_max_epi32(A1, A2);
+    HB = _mm512_max_epi32(B1, B2);
+    HC = _mm512_max_epi32(C1, C2);
+    HD = _mm512_max_epi32(D1, D2);
+    
     A1 = _mm512_permutex2var_epi32(LA, idx_L4, HA);
+    B1 = _mm512_permutex2var_epi32(LB, idx_L4, HB);
+    C1 = _mm512_permutex2var_epi32(LC, idx_L4, HC);
+    D1 = _mm512_permutex2var_epi32(LD, idx_L4, HD);
+    
     A2 = _mm512_permutex2var_epi32(LA, idx_H4, HA);
+    B2 = _mm512_permutex2var_epi32(LB, idx_H4, HB);
+    C2 = _mm512_permutex2var_epi32(LC, idx_H4, HC);
+    D2 = _mm512_permutex2var_epi32(LD, idx_H4, HD);
 
     // L5
     LA = _mm512_min_epi32(A1, A2);
+    LB = _mm512_min_epi32(B1, B2);
+    LC = _mm512_min_epi32(C1, C2);
+    LD = _mm512_min_epi32(D1, D2);
+    
     HA = _mm512_max_epi32(A1, A2);
+    HB = _mm512_max_epi32(B1, B2);
+    HC = _mm512_max_epi32(C1, C2);
+    HD = _mm512_max_epi32(D1, D2);
+
     A1out = _mm512_permutex2var_epi32(LA, idx_L5, HA);
+    B1out = _mm512_permutex2var_epi32(LB, idx_L5, HB);
+    C1out = _mm512_permutex2var_epi32(LC, idx_L5, HC);
+    D1out = _mm512_permutex2var_epi32(LD, idx_L5, HD);
+    
     A2out = _mm512_permutex2var_epi32(LA, idx_H5, HA);
+    B2out = _mm512_permutex2var_epi32(LB, idx_H5, HB);
+    C2out = _mm512_permutex2var_epi32(LC, idx_H5, HC);
+    D2out = _mm512_permutex2var_epi32(LD, idx_H5, HD);
 
-    printVectorInt(A1out, "A1out");
-    printVectorInt(A2out, "A2out");
-
+    // printVectorInt(A1out, "A1out");
+    // printVectorInt(A2out, "A2out");
+    // printVectorInt(B1out, "B1out");
+    // printVectorInt(B2out, "B2out");
+    // printVectorInt(C1out, "C1out");
+    // printVectorInt(C2out, "C2out"); 
+    // printVectorInt(D1out, "D1out");
+    // printVectorInt(D2out, "D2out");
 
     return;  
 }
@@ -255,92 +375,198 @@ void bitonicSort(__m512i &A1, __m512i &A2, __m512i &A1out, __m512i &A2out) {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int main(){
 
-
-    //      |..SEG...SEG...SEG...SEG..|..........BLOCK..........|..........BLOCK..........|..........BLOCK..........|
-    //       <--------           THREAD WORK SIZE               -------->
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     //
-    // Several segments make a block, and 1 or 4 blocks make a thread_work_size, until the whole thing is sorted.  
-    // Segments are 2xsorted_block_size long, and are spaced at regular intervals 
+    //      |..SEG...SEG...SEG...SEG..|..........BLOCK..........|..........BLOCK..........|..........BLOCK..........|
+    //      <-------------------------------------<      THREAD WORK SIZE      >------------------------------------>
+    //
+    //
+    // Each segment length = 2 * sorted_block_size 
+    // variables segentA + segmentB + segmentC + segmentD = Block
+    // When the while loop has finished, 4 blocks make a thread_work_size.
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
     cout << "Program Start..... " << endl << endl;  
-    int n = 256;
-    int * Arr = (int*)aligned_alloc(64, sizeof(int) * n);
-    getRandomArray(n, Arr);
-    aprint(n, Arr);   
-
-
+    int ILP = 4;  
+    int thread_work_size = 1024;
+    int * Arr = (int*)aligned_alloc(64, sizeof(int) * thread_work_size);
+    getRandomArray(thread_work_size, Arr);
 
     // Each thread works on a thread_work_size amount of data
-    int thread_work_size = n;
-    int end_block_size = thread_work_size / 1;
-    sort16(n, Arr);  
+    sort16(thread_work_size, Arr);  
     int sorted_block_size = 16;
     
     int thread_work_index = 0;
-    int thread_end_index = thread_work_index + n;  
+    int thread_end_index = thread_work_index + thread_work_size;  
 
     int * Arr_read = &Arr[thread_work_index];
-    int * Arr_write = (int*)aligned_alloc(64, sizeof(int) * n);
+    int * Arr_write = (int*)aligned_alloc(64, sizeof(int) * thread_work_size);
 
     cout << endl << "-------------------------------------------" << endl << endl;  
 
-    while (sorted_block_size < end_block_size){
+    while (sorted_block_size < thread_work_size/4){
 
-
-        for (int segment = 0; segment < thread_work_size; segment += sorted_block_size * 2){
-            cout << ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> " << segment << endl;  
-            int startA1 = segment;
+        for (int segmentA = 0; segmentA < thread_work_size; segmentA += sorted_block_size * 8){
+            cout << ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> " << segmentA << endl;  
+            int segmentB = segmentA + sorted_block_size * 2;
+            int segmentC = segmentB + sorted_block_size * 2;
+            int segmentD = segmentC + sorted_block_size * 2;
+            
+            int startA1 = segmentA;
+            int startB1 = segmentB;
+            int startC1 = segmentC;
+            int startD1 = segmentD;
+    
             int endA1 = startA1 + sorted_block_size;
+            int endB1 = startB1 + sorted_block_size;
+            int endC1 = startC1 + sorted_block_size;
+            int endD1 = startD1 + sorted_block_size;
+            
             int startA2 = endA1;
+            int startB2 = endB1;
+            int startC2 = endC1;
+            int startD2 = endD1;
+
             int endA2 = startA2 + sorted_block_size;
+            int endB2 = startB2 + sorted_block_size;
+            int endC2 = startC2 + sorted_block_size;
+            int endD2 = startD2 + sorted_block_size;
 
             __m512i A1 = _mm512_load_si512(&Arr_read[startA1]); 
+            __m512i B1 = _mm512_load_si512(&Arr_read[startB1]); 
+            __m512i C1 = _mm512_load_si512(&Arr_read[startC1]); 
+            __m512i D1 = _mm512_load_si512(&Arr_read[startD1]); 
+            
             __m512i A2 = _mm512_load_si512(&Arr_read[startA2]);
+            __m512i B2 = _mm512_load_si512(&Arr_read[startB2]);
+            __m512i C2 = _mm512_load_si512(&Arr_read[startC2]);
+            __m512i D2 = _mm512_load_si512(&Arr_read[startD2]);
+            
             __m512i A1out;  
+            __m512i B1out;  
+            __m512i C1out;  
+            __m512i D1out;  
+            
             __m512i A2out;
+            __m512i B2out;
+            __m512i C2out;
+            __m512i D2out;
+            
             for (int i = 0; i < (sorted_block_size/8)-1; i++){
-                cout << i+1 << " -- ";  
-                bitonicSort(A1, A2, A1out, A2out);
-                cout << startA1 << ", " << startA2 << endl;  
-                _mm512_store_si512(&Arr_write[segment + i*16], A1out);
+                bitonicSort(A1, A2, A1out, A2out,
+                            B1, B2, B1out, B2out,
+                            C1, C2, C1out, C2out,
+                            D1, D2, D1out, D2out);
+                _mm512_store_si512(&Arr_write[segmentA + i*16], A1out);
+                _mm512_store_si512(&Arr_write[segmentB + i*16], B1out);
+                _mm512_store_si512(&Arr_write[segmentC + i*16], C1out);
+                _mm512_store_si512(&Arr_write[segmentD + i*16], D1out);
                 A1 = A2out; 
+                B1 = B2out; 
+                C1 = C2out; 
+                D1 = D2out; 
+                //////////////////////////////// -- A -- ////////////////////////////////
                 if (i == ((sorted_block_size/8)-2) ){
-                    cout << "Last Iteration" << endl;  
-                    _mm512_store_si512(&Arr_write[segment + i*16+16], A2out);
+                    _mm512_store_si512(&Arr_write[segmentA + i*16+16], A2out);
+                    _mm512_store_si512(&Arr_write[segmentB + i*16+16], B2out);
+                    _mm512_store_si512(&Arr_write[segmentC + i*16+16], C2out);
+                    _mm512_store_si512(&Arr_write[segmentD + i*16+16], D2out);
                 }
-                else if (startA1+16 == endA1) {
-                    cout << "If 1" << endl;  
+                if (startA1+16 == endA1) {
                     // Finished 1’s side but not 2’s side
                     startA2 += 16;
                     A2 = _mm512_load_si512(&Arr_read[startA2]);
                 } 
                 else if (startA2+16 == endA2) {
-                    cout << "If 2" << endl;  
                     // Finished 2's side but not 1’s side
                     startA1 += 16;
                     A2 = _mm512_load_si512(&Arr_read[startA1]);
                 } 
                 else if (Arr_read[startA1 + 16] < Arr_read[startA2 + 16] ){
-                    cout << "If 3" << endl;  
                     // use A1’s value
                     startA1 += 16;
                     A2 = _mm512_load_si512(&Arr_read[startA1]); 
                 } 
                 else if (Arr_read[startA1 + 16] >= Arr_read[startA2 + 16] ){
-                    cout << "If 4" << endl;  
                     // Store A2's source and swap A1's source with A2's source 
                     startA2 += 16;
                     A2 = _mm512_load_si512(&Arr_read[startA2]); 
                 }
-                cout << startA1 << ", " << startA2 << endl;  
-                aprint(128, Arr_write);
-                aprint(128, Arr_write+128);
+                //////////////////////////////// -- B -- ////////////////////////////////
+                if (startB1+16 == endB1) {
+                    // Finished 1’s side but not 2’s side
+                    startB2 += 16;
+                    B2 = _mm512_load_si512(&Arr_read[startB2]);
+                } 
+                else if (startB2+16 == endB2) {
+                    // Finished 2's side but not 1’s side
+                    startB1 += 16;
+                    B2 = _mm512_load_si512(&Arr_read[startB1]);
+                } 
+                else if (Arr_read[startB1 + 16] < Arr_read[startB2 + 16] ){
+                    // use A1’s value
+                    startB1 += 16;
+                    B2 = _mm512_load_si512(&Arr_read[startB1]); 
+                } 
+                else if (Arr_read[startB1 + 16] >= Arr_read[startB2 + 16] ){
+                    // Store A2's source and swap A1's source with A2's source 
+                    startB2 += 16;
+                    B2 = _mm512_load_si512(&Arr_read[startB2]); 
+                }
+                //////////////////////////////// -- C -- ////////////////////////////////
+                if (startC1+16 == endC1) {
+                    // Finished 1’s side but not 2’s side
+                    startC2 += 16;
+                    C2 = _mm512_load_si512(&Arr_read[startC2]);
+                } 
+                else if (startC2+16 == endC2) {
+                    // Finished 2's side but not 1’s side
+                    startC1 += 16;
+                    C2 = _mm512_load_si512(&Arr_read[startC1]);
+                } 
+                else if (Arr_read[startC1 + 16] < Arr_read[startC2 + 16] ){
+                    // use A1’s value
+                    startC1 += 16;
+                    C2 = _mm512_load_si512(&Arr_read[startC1]); 
+                } 
+                else if (Arr_read[startC1 + 16] >= Arr_read[startC2 + 16] ){
+                    // Store A2's source and swap A1's source with A2's source 
+                    startC2 += 16;
+                    C2 = _mm512_load_si512(&Arr_read[startC2]); 
+                }
+                //////////////////////////////// -- D -- ////////////////////////////////
+                if (startD1+16 == endD1) {
+                    // Finished 1’s side but not 2’s side
+                    startD2 += 16;
+                    D2 = _mm512_load_si512(&Arr_read[startD2]);
+                } 
+                else if (startD2+16 == endD2) {
+                    // Finished 2's side but not 1’s side
+                    startD1 += 16;
+                    D2 = _mm512_load_si512(&Arr_read[startD1]);
+                } 
+                else if (Arr_read[startD1 + 16] < Arr_read[startD2 + 16] ){
+                    // use A1’s value
+                    startD1 += 16;
+                    D2 = _mm512_load_si512(&Arr_read[startD1]); 
+                } 
+                else if (Arr_read[startD1 + 16] >= Arr_read[startD2 + 16] ){
+                    // Store A2's source and swap A1's source with A2's source 
+                    startD2 += 16;
+                    D2 = _mm512_load_si512(&Arr_read[startD2]); 
+                }
             }
         }
         sorted_block_size *= 2; 
+        aprint(256, Arr_write);
         int * temp = Arr_write;
         Arr_write = Arr_read;
-        Arr_read = temp;   
+        Arr_read = temp;  
     }
-
+    cout << endl << endl;  
+    aprint(thread_work_size, Arr);
+    areBlocksSorted(thread_work_size, Arr, ILP);  
+    
+    
     return 0;
 }
