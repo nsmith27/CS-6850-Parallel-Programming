@@ -283,7 +283,7 @@ int main(){
 
     cout << endl << "-------------------------------------------" << endl << endl;  
 
-    // while (sortedBlockSize < endBlockSize){
+    while (sorted_block_size < end_block_size){
 
 
         for (int segment = 0; segment < thread_work_size; segment += sorted_block_size * 2){
@@ -336,7 +336,11 @@ int main(){
                 aprint(128, Arr_write+128);
             }
         }
-    // }
+        sorted_block_size *= 2; 
+        int * temp = Arr_write;
+        Arr_write = Arr_read;
+        Arr_read = temp;   
+    }
 
     return 0;
 }
