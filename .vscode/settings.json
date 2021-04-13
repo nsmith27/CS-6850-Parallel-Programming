@@ -2,6 +2,7 @@
     "files.associations": {
         "xstring": "cpp",
         "random": "cpp",
-        "xutility": "cpp"
+        "xutility": "cpp",
+        "ostream": "cpp"
     }
 }

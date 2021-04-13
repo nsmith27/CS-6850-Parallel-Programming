@@ -9,6 +9,11 @@
 #include <vector>
 #include <queue>  
 
+#include <unistd.h>
+#include <omp.h>
+#include <cstdio>
+#define N 33'554'432 // 2^25
+
 using namespace std;
 
 
@@ -40,9 +45,10 @@ void aprint(int size, T * A);
 int * getCopyArr(int n, int * start);
 
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //  Helper Functions
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 // Code to help print an __m512 vector:
 void printVectorInt(__m512i v, string name) {
@@ -90,8 +96,8 @@ void aprint(int size, T * A){
 // Randomize elements of a vector
 template <typename T> 
 void aShuffle(int size, T * A ){
-    std::random_device rd;  //Will be used to obtain a seed for the random number engine
-    std::mt19937 gen(rd()); //Standard mersenne_twister_engine seeded with rd()
+    std::random_device rd;  // Required to obtain seed from random number engine
+    std::mt19937 gen(rd()); // Standard mersenne_twister_engine seeded with rd()
 
     for (int i = 0; i < size; i++){
         std::uniform_int_distribution<int> rand_elem(0, i);
@@ -123,9 +129,10 @@ void getRandomArray(int size, T * A){
     return;
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //  Primary Functions
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // isSorted
 template <typename T>
 bool isSorted(int size, T * A){
@@ -140,17 +147,19 @@ bool isSorted(int size, T * A){
 // areBlocksSorted
 template <typename T>
 bool areBlocksSorted(int size, T * A, int ILP){
+    static int thread_work_chunk = 1;
     bool sorted = true; 
     int block_size = size / ILP;
     for (int i = 0; i < ILP; i++){
         if ( !isSorted(block_size, &A[i * block_size]) ){
-            cout << "Failed to sort Block " << i << "!" << endl;  
+            cout << "Failed to sort Block " << i << " in work group " << thread_work_chunk << "!" << endl;  
             sorted = false;
         }
     }
     if (sorted){
-        cout << "Success! " << endl;  
+        // cout << "Success! \t Work Group: " << thread_work_chunk << endl;  
     }
+    thread_work_chunk += 1;  
     return sorted;  
 }
 
@@ -163,7 +172,7 @@ void sort16(int size, T * A){
         // cout << endl; 
         // aprint(16, A+i);
         if (!isSorted(16, A+i)){
-            cout << "Not Sorted!!!" << endl;  
+            cout << "16 Elements Not Sorted!!!" << endl;  
         }
     }
     return;
@@ -172,7 +181,6 @@ void sort16(int size, T * A){
 // Selection Sort
 template <typename T>
 void selectionSort(int size, T * A){
-    int swaps;
     for (int i = 0; i < size-1; i++){
         int min = i;
         for (int j = i+1; j < size; j++){
@@ -212,16 +220,6 @@ void bitonicSort(__m512i &A1, __m512i &A2, __m512i &A1out, __m512i &A2out,
                  __m512i &B1, __m512i &B2, __m512i &B1out, __m512i &B2out,
                  __m512i &C1, __m512i &C2, __m512i &C1out, __m512i &C2out,
                  __m512i &D1, __m512i &D2, __m512i &D1out, __m512i &D2out) {
-
-    // cout << endl << "bitonicSort() CALLED! " << endl << endl;  
-    // printVectorInt(A1, "A1");
-    // printVectorInt(A2, "A2");
-    // printVectorInt(A1, "B1");
-    // printVectorInt(A2, "B2");
-    // printVectorInt(A1, "C1");
-    // printVectorInt(A2, "C2");
-    // printVectorInt(A1, "D1");
-    // printVectorInt(A2, "D2");
 
     __m512i LA;
     __m512i LB;
@@ -356,23 +354,14 @@ void bitonicSort(__m512i &A1, __m512i &A2, __m512i &A1out, __m512i &A2out,
     C2out = _mm512_permutex2var_epi32(LC, idx_H5, HC);
     D2out = _mm512_permutex2var_epi32(LD, idx_H5, HD);
 
-    // printVectorInt(A1out, "A1out");
-    // printVectorInt(A2out, "A2out");
-    // printVectorInt(B1out, "B1out");
-    // printVectorInt(B2out, "B2out");
-    // printVectorInt(C1out, "C1out");
-    // printVectorInt(C2out, "C2out"); 
-    // printVectorInt(D1out, "D1out");
-    // printVectorInt(D2out, "D2out");
-
     return;  
 }
 
 
 
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Main
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int main(){
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -386,187 +375,185 @@ int main(){
     // When the while loop has finished, 4 blocks make a thread_work_size.
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    cout << "Program Start..... " << endl << endl;  
+    cout << endl << "-------------------------------------------" << endl;  
+    cout << "Program Start..... " << endl;  
+    cout << "-------------------------------------------" << endl << endl;  
     int ILP = 4;  
-    int thread_work_size = 1024;
-    int * Arr = (int*)aligned_alloc(64, sizeof(int) * thread_work_size);
-    getRandomArray(thread_work_size, Arr);
+    int TOTAL_SIZE = pow(2, 25);
+    // TOTAL_SIZE = 65536;
+    int thread_work_size = 65536;
+    int * Arr = (int*)aligned_alloc(64, sizeof(int) * TOTAL_SIZE);
+    getRandomArray(TOTAL_SIZE, Arr);
 
+    auto t0 = std::chrono::steady_clock::now();
     // Each thread works on a thread_work_size amount of data
-    sort16(thread_work_size, Arr);  
-    int sorted_block_size = 16;
+    #pragma omp parallel for schedule(dynamic) num_threads(64)
     
-    int thread_work_index = 0;
-    int thread_end_index = thread_work_index + thread_work_size;  
+    for (unsigned int thread_work_index = 0; thread_work_index < TOTAL_SIZE; thread_work_index += thread_work_size) {
+        sort16(thread_work_size, &Arr[thread_work_index]);  
+        int sorted_block_size = 16;
+        
+        int * Arr_read = &Arr[thread_work_index];
+        int * Arr_write = (int*)aligned_alloc(64, sizeof(int) * thread_work_size);
 
-    int * Arr_read = &Arr[thread_work_index];
-    int * Arr_write = (int*)aligned_alloc(64, sizeof(int) * thread_work_size);
+        while (sorted_block_size < thread_work_size/4){
 
-    cout << endl << "-------------------------------------------" << endl << endl;  
+            for (int segmentA = 0; segmentA < thread_work_size; segmentA += sorted_block_size * 8){
+                int segmentB = segmentA + sorted_block_size * 2;
+                int segmentC = segmentB + sorted_block_size * 2;
+                int segmentD = segmentC + sorted_block_size * 2;
+                int startA1 = segmentA;
+                int startB1 = segmentB;
+                int startC1 = segmentC;
+                int startD1 = segmentD;
+                int endA1 = startA1 + sorted_block_size;
+                int endB1 = startB1 + sorted_block_size;
+                int endC1 = startC1 + sorted_block_size;
+                int endD1 = startD1 + sorted_block_size;
+                int startA2 = endA1;
+                int startB2 = endB1;
+                int startC2 = endC1;
+                int startD2 = endD1;
+                int endA2 = startA2 + sorted_block_size;
+                int endB2 = startB2 + sorted_block_size;
+                int endC2 = startC2 + sorted_block_size;
+                int endD2 = startD2 + sorted_block_size;
 
-    while (sorted_block_size < thread_work_size/4){
-
-        for (int segmentA = 0; segmentA < thread_work_size; segmentA += sorted_block_size * 8){
-            cout << ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> " << segmentA << endl;  
-            int segmentB = segmentA + sorted_block_size * 2;
-            int segmentC = segmentB + sorted_block_size * 2;
-            int segmentD = segmentC + sorted_block_size * 2;
-            
-            int startA1 = segmentA;
-            int startB1 = segmentB;
-            int startC1 = segmentC;
-            int startD1 = segmentD;
-    
-            int endA1 = startA1 + sorted_block_size;
-            int endB1 = startB1 + sorted_block_size;
-            int endC1 = startC1 + sorted_block_size;
-            int endD1 = startD1 + sorted_block_size;
-            
-            int startA2 = endA1;
-            int startB2 = endB1;
-            int startC2 = endC1;
-            int startD2 = endD1;
-
-            int endA2 = startA2 + sorted_block_size;
-            int endB2 = startB2 + sorted_block_size;
-            int endC2 = startC2 + sorted_block_size;
-            int endD2 = startD2 + sorted_block_size;
-
-            __m512i A1 = _mm512_load_si512(&Arr_read[startA1]); 
-            __m512i B1 = _mm512_load_si512(&Arr_read[startB1]); 
-            __m512i C1 = _mm512_load_si512(&Arr_read[startC1]); 
-            __m512i D1 = _mm512_load_si512(&Arr_read[startD1]); 
-            
-            __m512i A2 = _mm512_load_si512(&Arr_read[startA2]);
-            __m512i B2 = _mm512_load_si512(&Arr_read[startB2]);
-            __m512i C2 = _mm512_load_si512(&Arr_read[startC2]);
-            __m512i D2 = _mm512_load_si512(&Arr_read[startD2]);
-            
-            __m512i A1out;  
-            __m512i B1out;  
-            __m512i C1out;  
-            __m512i D1out;  
-            
-            __m512i A2out;
-            __m512i B2out;
-            __m512i C2out;
-            __m512i D2out;
-            
-            for (int i = 0; i < (sorted_block_size/8)-1; i++){
-                bitonicSort(A1, A2, A1out, A2out,
-                            B1, B2, B1out, B2out,
-                            C1, C2, C1out, C2out,
-                            D1, D2, D1out, D2out);
-                _mm512_store_si512(&Arr_write[segmentA + i*16], A1out);
-                _mm512_store_si512(&Arr_write[segmentB + i*16], B1out);
-                _mm512_store_si512(&Arr_write[segmentC + i*16], C1out);
-                _mm512_store_si512(&Arr_write[segmentD + i*16], D1out);
-                A1 = A2out; 
-                B1 = B2out; 
-                C1 = C2out; 
-                D1 = D2out; 
-                //////////////////////////////// -- A -- ////////////////////////////////
-                if (i == ((sorted_block_size/8)-2) ){
-                    _mm512_store_si512(&Arr_write[segmentA + i*16+16], A2out);
-                    _mm512_store_si512(&Arr_write[segmentB + i*16+16], B2out);
-                    _mm512_store_si512(&Arr_write[segmentC + i*16+16], C2out);
-                    _mm512_store_si512(&Arr_write[segmentD + i*16+16], D2out);
-                }
-                if (startA1+16 == endA1) {
-                    // Finished 1’s side but not 2’s side
-                    startA2 += 16;
-                    A2 = _mm512_load_si512(&Arr_read[startA2]);
-                } 
-                else if (startA2+16 == endA2) {
-                    // Finished 2's side but not 1’s side
-                    startA1 += 16;
-                    A2 = _mm512_load_si512(&Arr_read[startA1]);
-                } 
-                else if (Arr_read[startA1 + 16] < Arr_read[startA2 + 16] ){
-                    // use A1’s value
-                    startA1 += 16;
-                    A2 = _mm512_load_si512(&Arr_read[startA1]); 
-                } 
-                else if (Arr_read[startA1 + 16] >= Arr_read[startA2 + 16] ){
-                    // Store A2's source and swap A1's source with A2's source 
-                    startA2 += 16;
-                    A2 = _mm512_load_si512(&Arr_read[startA2]); 
-                }
-                //////////////////////////////// -- B -- ////////////////////////////////
-                if (startB1+16 == endB1) {
-                    // Finished 1’s side but not 2’s side
-                    startB2 += 16;
-                    B2 = _mm512_load_si512(&Arr_read[startB2]);
-                } 
-                else if (startB2+16 == endB2) {
-                    // Finished 2's side but not 1’s side
-                    startB1 += 16;
-                    B2 = _mm512_load_si512(&Arr_read[startB1]);
-                } 
-                else if (Arr_read[startB1 + 16] < Arr_read[startB2 + 16] ){
-                    // use A1’s value
-                    startB1 += 16;
-                    B2 = _mm512_load_si512(&Arr_read[startB1]); 
-                } 
-                else if (Arr_read[startB1 + 16] >= Arr_read[startB2 + 16] ){
-                    // Store A2's source and swap A1's source with A2's source 
-                    startB2 += 16;
-                    B2 = _mm512_load_si512(&Arr_read[startB2]); 
-                }
-                //////////////////////////////// -- C -- ////////////////////////////////
-                if (startC1+16 == endC1) {
-                    // Finished 1’s side but not 2’s side
-                    startC2 += 16;
-                    C2 = _mm512_load_si512(&Arr_read[startC2]);
-                } 
-                else if (startC2+16 == endC2) {
-                    // Finished 2's side but not 1’s side
-                    startC1 += 16;
-                    C2 = _mm512_load_si512(&Arr_read[startC1]);
-                } 
-                else if (Arr_read[startC1 + 16] < Arr_read[startC2 + 16] ){
-                    // use A1’s value
-                    startC1 += 16;
-                    C2 = _mm512_load_si512(&Arr_read[startC1]); 
-                } 
-                else if (Arr_read[startC1 + 16] >= Arr_read[startC2 + 16] ){
-                    // Store A2's source and swap A1's source with A2's source 
-                    startC2 += 16;
-                    C2 = _mm512_load_si512(&Arr_read[startC2]); 
-                }
-                //////////////////////////////// -- D -- ////////////////////////////////
-                if (startD1+16 == endD1) {
-                    // Finished 1’s side but not 2’s side
-                    startD2 += 16;
-                    D2 = _mm512_load_si512(&Arr_read[startD2]);
-                } 
-                else if (startD2+16 == endD2) {
-                    // Finished 2's side but not 1’s side
-                    startD1 += 16;
-                    D2 = _mm512_load_si512(&Arr_read[startD1]);
-                } 
-                else if (Arr_read[startD1 + 16] < Arr_read[startD2 + 16] ){
-                    // use A1’s value
-                    startD1 += 16;
-                    D2 = _mm512_load_si512(&Arr_read[startD1]); 
-                } 
-                else if (Arr_read[startD1 + 16] >= Arr_read[startD2 + 16] ){
-                    // Store A2's source and swap A1's source with A2's source 
-                    startD2 += 16;
-                    D2 = _mm512_load_si512(&Arr_read[startD2]); 
+                __m512i A1 = _mm512_load_si512(&Arr_read[startA1]); 
+                __m512i B1 = _mm512_load_si512(&Arr_read[startB1]); 
+                __m512i C1 = _mm512_load_si512(&Arr_read[startC1]); 
+                __m512i D1 = _mm512_load_si512(&Arr_read[startD1]); 
+                __m512i A2 = _mm512_load_si512(&Arr_read[startA2]);
+                __m512i B2 = _mm512_load_si512(&Arr_read[startB2]);
+                __m512i C2 = _mm512_load_si512(&Arr_read[startC2]);
+                __m512i D2 = _mm512_load_si512(&Arr_read[startD2]);
+                __m512i A1out;  
+                __m512i B1out;  
+                __m512i C1out;  
+                __m512i D1out;  
+                __m512i A2out;
+                __m512i B2out;
+                __m512i C2out;
+                __m512i D2out;
+                
+                for (int i = 0; i < (sorted_block_size/8)-1; i++){
+                    bitonicSort(A1, A2, A1out, A2out,
+                                B1, B2, B1out, B2out,
+                                C1, C2, C1out, C2out,
+                                D1, D2, D1out, D2out);
+                    _mm512_store_si512(&Arr_write[segmentA + i*16], A1out);
+                    _mm512_store_si512(&Arr_write[segmentB + i*16], B1out);
+                    _mm512_store_si512(&Arr_write[segmentC + i*16], C1out);
+                    _mm512_store_si512(&Arr_write[segmentD + i*16], D1out);
+                    A1 = A2out; 
+                    B1 = B2out; 
+                    C1 = C2out; 
+                    D1 = D2out; 
+                    //////////////////////////////// -- A -- ////////////////////////////////
+                    if (i == ((sorted_block_size/8)-2) ){
+                        _mm512_store_si512(&Arr_write[segmentA + i*16+16], A2out);
+                        _mm512_store_si512(&Arr_write[segmentB + i*16+16], B2out);
+                        _mm512_store_si512(&Arr_write[segmentC + i*16+16], C2out);
+                        _mm512_store_si512(&Arr_write[segmentD + i*16+16], D2out);
+                    }
+                    if (startA1+16 == endA1) {
+                        // Finished 1’s side but not 2’s side
+                        startA2 += 16;
+                        A2 = _mm512_load_si512(&Arr_read[startA2]);
+                    } 
+                    else if (startA2+16 == endA2) {
+                        // Finished 2's side but not 1’s side
+                        startA1 += 16;
+                        A2 = _mm512_load_si512(&Arr_read[startA1]);
+                    } 
+                    else if (Arr_read[startA1 + 16] < Arr_read[startA2 + 16] ){
+                        // use A1’s value
+                        startA1 += 16;
+                        A2 = _mm512_load_si512(&Arr_read[startA1]); 
+                    } 
+                    else if (Arr_read[startA1 + 16] >= Arr_read[startA2 + 16] ){
+                        // Store A2's source and swap A1's source with A2's source 
+                        startA2 += 16;
+                        A2 = _mm512_load_si512(&Arr_read[startA2]); 
+                    }
+                    //////////////////////////////// -- B -- ////////////////////////////////
+                    if (startB1+16 == endB1) {
+                        // Finished 1’s side but not 2’s side
+                        startB2 += 16;
+                        B2 = _mm512_load_si512(&Arr_read[startB2]);
+                    } 
+                    else if (startB2+16 == endB2) {
+                        // Finished 2's side but not 1’s side
+                        startB1 += 16;
+                        B2 = _mm512_load_si512(&Arr_read[startB1]);
+                    } 
+                    else if (Arr_read[startB1 + 16] < Arr_read[startB2 + 16] ){
+                        // use A1’s value
+                        startB1 += 16;
+                        B2 = _mm512_load_si512(&Arr_read[startB1]); 
+                    } 
+                    else if (Arr_read[startB1 + 16] >= Arr_read[startB2 + 16] ){
+                        // Store A2's source and swap A1's source with A2's source 
+                        startB2 += 16;
+                        B2 = _mm512_load_si512(&Arr_read[startB2]); 
+                    }
+                    //////////////////////////////// -- C -- ////////////////////////////////
+                    if (startC1+16 == endC1) {
+                        // Finished 1’s side but not 2’s side
+                        startC2 += 16;
+                        C2 = _mm512_load_si512(&Arr_read[startC2]);
+                    } 
+                    else if (startC2+16 == endC2) {
+                        // Finished 2's side but not 1’s side
+                        startC1 += 16;
+                        C2 = _mm512_load_si512(&Arr_read[startC1]);
+                    } 
+                    else if (Arr_read[startC1 + 16] < Arr_read[startC2 + 16] ){
+                        // use A1’s value
+                        startC1 += 16;
+                        C2 = _mm512_load_si512(&Arr_read[startC1]); 
+                    } 
+                    else if (Arr_read[startC1 + 16] >= Arr_read[startC2 + 16] ){
+                        // Store A2's source and swap A1's source with A2's source 
+                        startC2 += 16;
+                        C2 = _mm512_load_si512(&Arr_read[startC2]); 
+                    }
+                    //////////////////////////////// -- D -- ////////////////////////////////
+                    if (startD1+16 == endD1) {
+                        // Finished 1’s side but not 2’s side
+                        startD2 += 16;
+                        D2 = _mm512_load_si512(&Arr_read[startD2]);
+                    } 
+                    else if (startD2+16 == endD2) {
+                        // Finished 2's side but not 1’s side
+                        startD1 += 16;
+                        D2 = _mm512_load_si512(&Arr_read[startD1]);
+                    } 
+                    else if (Arr_read[startD1 + 16] < Arr_read[startD2 + 16] ){
+                        // use A1’s value
+                        startD1 += 16;
+                        D2 = _mm512_load_si512(&Arr_read[startD1]); 
+                    } 
+                    else if (Arr_read[startD1 + 16] >= Arr_read[startD2 + 16] ){
+                        // Store A2's source and swap A1's source with A2's source 
+                        startD2 += 16;
+                        D2 = _mm512_load_si512(&Arr_read[startD2]); 
+                    }
                 }
             }
+            sorted_block_size *= 2; 
+            int * temp = Arr_write;
+            Arr_write = Arr_read;
+            Arr_read = temp;  
         }
-        sorted_block_size *= 2; 
-        aprint(256, Arr_write);
-        int * temp = Arr_write;
-        Arr_write = Arr_read;
-        Arr_read = temp;  
+        areBlocksSorted(thread_work_size, Arr, ILP);  
     }
-    cout << endl << endl;  
-    aprint(thread_work_size, Arr);
-    areBlocksSorted(thread_work_size, Arr, ILP);  
-    
+    double elapsed_time = (std::chrono::steady_clock::now() - t0).count() / 1e9;
+    cout << "Total Elapsed Time: " << elapsed_time << endl << endl;  
     
     return 0;
 }
+
+
+
+
