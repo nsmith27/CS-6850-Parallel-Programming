@@ -124,7 +124,7 @@ void getRandomArray(int size, T * A){
     }
     aShuffle(size, A);
     if (size <= 256){
-        aprint(size, A); 
+        // aprint(size, A); 
     }
     return;
 }
@@ -153,6 +153,7 @@ bool areBlocksSorted(int size, T * A, int ILP){
     for (int i = 0; i < ILP; i++){
         if ( !isSorted(block_size, &A[i * block_size]) ){
             cout << "Failed to sort Block " << i << " in work group " << thread_work_chunk << "!" << endl;  
+            // aprint(block_size, &A[i * block_size]);  
             sorted = false;
         }
     }
@@ -171,9 +172,9 @@ void sort16(int size, T * A){
         selectionSort(16,A+i);
         // cout << endl; 
         // aprint(16, A+i);
-        if (!isSorted(16, A+i)){
-            cout << "16 Elements Not Sorted!!!" << endl;  
-        }
+        // if (!isSorted(16, A+i)){
+        //     cout << "16 Elements Not Sorted!!!" << endl;  
+        // }
     }
     return;
 }
@@ -364,7 +365,7 @@ void bitonicSort(__m512i &A1, __m512i &A2, __m512i &A1out, __m512i &A2out,
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int main(){
 
-    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     //
     //      |..SEG...SEG...SEG...SEG..|..........BLOCK..........|..........BLOCK..........|..........BLOCK..........|
     //      <-------------------------------------<      THREAD WORK SIZE      >------------------------------------>
@@ -373,14 +374,14 @@ int main(){
     // Each segment length = 2 * sorted_block_size 
     // variables segentA + segmentB + segmentC + segmentD = Block
     // When the while loop has finished, 4 blocks make a thread_work_size.
-    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     cout << endl << "-------------------------------------------" << endl;  
     cout << "Program Start..... " << endl;  
     cout << "-------------------------------------------" << endl << endl;  
     int ILP = 4;  
     int TOTAL_SIZE = pow(2, 25);
-    // TOTAL_SIZE = 65536;
+    // TOTAL_SIZE = 256*4;
     int thread_work_size = 65536;
     int * Arr = (int*)aligned_alloc(64, sizeof(int) * TOTAL_SIZE);
     getRandomArray(TOTAL_SIZE, Arr);
@@ -388,7 +389,6 @@ int main(){
     auto t0 = std::chrono::steady_clock::now();
     // Each thread works on a thread_work_size amount of data
     #pragma omp parallel for schedule(dynamic) num_threads(64)
-    
     for (unsigned int thread_work_index = 0; thread_work_index < TOTAL_SIZE; thread_work_index += thread_work_size) {
         sort16(thread_work_size, &Arr[thread_work_index]);  
         int sorted_block_size = 16;
@@ -397,7 +397,6 @@ int main(){
         int * Arr_write = (int*)aligned_alloc(64, sizeof(int) * thread_work_size);
 
         while (sorted_block_size < thread_work_size/4){
-
             for (int segmentA = 0; segmentA < thread_work_size; segmentA += sorted_block_size * 8){
                 int segmentB = segmentA + sorted_block_size * 2;
                 int segmentC = segmentB + sorted_block_size * 2;
@@ -546,11 +545,13 @@ int main(){
             Arr_write = Arr_read;
             Arr_read = temp;  
         }
-        areBlocksSorted(thread_work_size, Arr, ILP);  
+        delete [] Arr_write;  
+        areBlocksSorted(thread_work_size, Arr_read, ILP);  
     }
     double elapsed_time = (std::chrono::steady_clock::now() - t0).count() / 1e9;
     cout << "Total Elapsed Time: " << elapsed_time << endl << endl;  
-    
+    // aprint(TOTAL_SIZE, Arr);
+
     return 0;
 }
 

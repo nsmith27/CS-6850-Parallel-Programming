@@ -4,5 +4,9 @@
         "random": "cpp",
         "xutility": "cpp",
         "ostream": "cpp"
-    }
+    },
+    "git.openDiffOnClick": false,
+    "git.pullTags": false,
+    "git.requireGitUserConfig": false,
+    "git.autoRepositoryDetection": false
 }
